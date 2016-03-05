@@ -1,4 +1,5 @@
 <?php
+
 namespace Geohash;
 
 class Geohash
@@ -10,195 +11,221 @@ class Geohash
     const DIRECTION_LEFT = 'left';
     const DIRECTION_RIGHT = 'right';
 
-    private static $table = "0123456789bcdefghjkmnpqrstuvwxyz";
-    private static $bits = array(16, 8, 4, 2, 1);
+    private static $characters = '0123456789bcdefghjkmnpqrstuvwxyz';
+    private static $bits = [16, 8, 4, 2, 1];
 
-    private static $neighbors = array(
-        self::DIRECTION_RIGHT => array(
+    private static $neighbors = [
+        self::DIRECTION_RIGHT => [
             self::EVEN => 'bc01fg45238967deuvhjyznpkmstqrwx',
             self::ODD => 'p0r21436x8zb9dcf5h7kjnmqesgutwvy',
-        ),
-        self::DIRECTION_LEFT => array(
-            self::EVEN =>  '238967debc01fg45kmstqrwxuvhjyznp',
+        ],
+        self::DIRECTION_LEFT => [
+            self::EVEN => '238967debc01fg45kmstqrwxuvhjyznp',
             self::ODD => '14365h7k9dcfesgujnmqp0r2twvyx8zb',
-        ),
-        self::DIRECTION_TOP => array(
-            self::EVEN =>  'p0r21436x8zb9dcf5h7kjnmqesgutwvy',
+        ],
+        self::DIRECTION_TOP => [
+            self::EVEN => 'p0r21436x8zb9dcf5h7kjnmqesgutwvy',
             self::ODD => 'bc01fg45238967deuvhjyznpkmstqrwx',
-        ),
-        self::DIRECTION_BOTTOM => array(
-            self::EVEN =>  '14365h7k9dcfesgujnmqp0r2twvyx8zb',
+        ],
+        self::DIRECTION_BOTTOM => [
+            self::EVEN => '14365h7k9dcfesgujnmqp0r2twvyx8zb',
             self::ODD => '238967debc01fg45kmstqrwxuvhjyznp',
-        ),
-    );
+        ],
+    ];
 
-    private static $borders = array(
-        self::DIRECTION_RIGHT => array(
+    private static $borders = [
+        self::DIRECTION_RIGHT => [
             self::EVEN => 'bcfguvyz',
             self::ODD => 'prxz',
-        ),
-        self::DIRECTION_LEFT => array(
+        ],
+        self::DIRECTION_LEFT => [
             self::EVEN => '0145hjnp',
             self::ODD => '028b',
-        ),
-        self::DIRECTION_TOP => array(
+        ],
+        self::DIRECTION_TOP => [
             self::EVEN => 'prxz',
             self::ODD => 'bcfguvyz',
-        ),
-        self::DIRECTION_BOTTOM => array(
+        ],
+        self::DIRECTION_BOTTOM => [
             self::EVEN => '028b',
             self::ODD => '0145hjnp',
-        ),
-    );
+        ],
+    ];
 
-    public static function encode($lat, $lng, $prec = null)
+    /**
+     * @param float $latitude
+     * @param float $longitude
+     * @param int $precision
+     *
+     * @return string
+     */
+    public static function encode($latitude, $longitude, $precision = null)
     {
-        $lap = strlen($lat) - strpos($lat, ".");
-        $lop = strlen($lng) - strpos($lng, ".");
-        $prec = $prec ?: pow(10, -max($lap-1, $lop-1, 0))/2;
-        $minlng = -180;
-        $maxlng = 180;
-        $minlat = -90;
-        $maxlat = 90;
+        $latitudePrecision = strlen($latitude) - strpos($latitude, '.');
+        $longitudePrecision = strlen($longitude) - strpos($longitude, '.');
+        $precision = $precision ?: pow(10, -max($latitudePrecision - 1, $longitudePrecision - 1, 0)) / 2;
 
-        $hash = array();
+        $minLatitude = -90;
+        $maxLatitude = 90;
+        $minLongitude = -180;
+        $maxLongitude = 180;
+
+        $geohash = [];
         $error = 180;
         $isEven = true;
-        $chr = 0;
-        $b = 0;
+        $character = 0;
+        $bit = 0;
 
-        while ($error >= $prec) {
+        while ($error >= $precision) {
             if ($isEven) {
-                $next = ($minlng + $maxlng) / 2;
-                if ($lng > $next) {
-                    $chr |= self::$bits[$b];
-                    $minlng = $next;
+                $next = ($minLongitude + $maxLongitude) / 2;
+
+                if ($longitude > $next) {
+                    $character |= self::$bits[$bit];
+                    $minLongitude = $next;
                 } else {
-                    $maxlng = $next;
+                    $maxLongitude = $next;
                 }
             } else {
-                $next = ($minlat + $maxlat) / 2;
-                if ($lat > $next) {
-                    $chr |= self::$bits[$b];
-                    $minlat = $next;
+                $next = ($minLatitude + $maxLatitude) / 2;
+
+                if ($latitude > $next) {
+                    $character |= self::$bits[$bit];
+                    $minLatitude = $next;
                 } else {
-                    $maxlat = $next;
+                    $maxLatitude = $next;
                 }
             }
             $isEven = !$isEven;
 
-            if ($b < 4) {
-                $b++;
+            if ($bit < 4) {
+                $bit++;
             } else {
-                $hash[] = self::$table[$chr];
-                $error = max($maxlng - $minlng, $maxlat - $minlat);
-                $b = 0;
-                $chr = 0;
+                $geohash[] = self::$characters[$character];
+                $error = max($maxLongitude - $minLongitude, $maxLatitude - $minLatitude);
+                $bit = 0;
+                $character = 0;
             }
         }
 
-        return join('', $hash);
-    }
-
-    public static function decode($hash)
-    {
-        $minlng = -180;
-        $maxlng = 180;
-        $minlat = -90;
-        $maxlat = 90;
-        $latE = 90;
-        $lngE = 180;
-
-        for ($i=0,$c=strlen($hash); $i<$c; $i++) {
-            $v = strpos(self::$table, $hash[$i]);
-            if (1&$i) {
-                if (16&$v) {
-                    $minlat = ($minlat + $maxlat) / 2;
-                } else {
-                    $maxlat = ($minlat + $maxlat) / 2;
-                }
-                if (8&$v) {
-                    $minlng = ($minlng + $maxlng) / 2;
-                } else {
-                    $maxlng = ($minlng + $maxlng) / 2;
-                }
-                if (4&$v) {
-                    $minlat = ($minlat + $maxlat) / 2;
-                } else {
-                    $maxlat = ($minlat + $maxlat) / 2;
-                }
-                if (2&$v) {
-                    $minlng = ($minlng + $maxlng) / 2;
-                } else {
-                    $maxlng = ($minlng + $maxlng) / 2;
-                }
-                if (1&$v) {
-                    $minlat = ($minlat + $maxlat) / 2;
-                } else {
-                    $maxlat = ($minlat + $maxlat) / 2;
-                }
-                $latE /= 8;
-                $lngE /= 4;
-            } else {
-                if (16&$v) {
-                    $minlng = ($minlng + $maxlng) / 2;
-                } else {
-                    $maxlng = ($minlng + $maxlng) / 2;
-                }
-                if (8&$v) {
-                    $minlat = ($minlat + $maxlat) / 2;
-                } else {
-                    $maxlat = ($minlat + $maxlat) / 2;
-                }
-                if (4&$v) {
-                    $minlng = ($minlng + $maxlng) / 2;
-                } else {
-                    $maxlng = ($minlng + $maxlng) / 2;
-                }
-                if (2&$v) {
-                    $minlat = ($minlat + $maxlat) / 2;
-                } else {
-                    $maxlat = ($minlat + $maxlat) / 2;
-                }
-                if (1&$v) {
-                    $minlng = ($minlng + $maxlng) / 2;
-                } else {
-                    $maxlng = ($minlng + $maxlng) / 2;
-                }
-                $latE /= 4;
-                $lngE /= 8;
-            }
-        }
-        $lat = round(($minlat + $maxlat) / 2, max(1, -round(log10($latE))) - 1);
-        $lng = round(($minlng + $maxlng) / 2, max(1, -round(log10($lngE))) - 1);
-
-        return array($lat, $lng);
+        return implode('', $geohash);
     }
 
     /**
-     * Based on David Troy implementation
+     * @param string $geohash
+     *
+     * @return array
+     */
+    public static function decode($geohash)
+    {
+        $minLongitude = -180;
+        $maxLongitude = 180;
+        $minLatitude = -90;
+        $maxLatitude = 90;
+        $latitudeE = 90;
+        $longitudeE = 180;
+
+        for ($i = 0; $i < strlen($geohash); $i++) {
+            $characterValue = strpos(self::$characters, $geohash[$i]);
+            if (1 & $i) {
+                if (16 & $characterValue) {
+                    $minLatitude = ($minLatitude + $maxLatitude) / 2;
+                } else {
+                    $maxLatitude = ($minLatitude + $maxLatitude) / 2;
+                }
+                if (8 & $characterValue) {
+                    $minLongitude = ($minLongitude + $maxLongitude) / 2;
+                } else {
+                    $maxLongitude = ($minLongitude + $maxLongitude) / 2;
+                }
+                if (4 & $characterValue) {
+                    $minLatitude = ($minLatitude + $maxLatitude) / 2;
+                } else {
+                    $maxLatitude = ($minLatitude + $maxLatitude) / 2;
+                }
+                if (2 & $characterValue) {
+                    $minLongitude = ($minLongitude + $maxLongitude) / 2;
+                } else {
+                    $maxLongitude = ($minLongitude + $maxLongitude) / 2;
+                }
+                if (1 & $characterValue) {
+                    $minLatitude = ($minLatitude + $maxLatitude) / 2;
+                } else {
+                    $maxLatitude = ($minLatitude + $maxLatitude) / 2;
+                }
+                $latitudeE /= 8;
+                $longitudeE /= 4;
+            } else {
+                if (16 & $characterValue) {
+                    $minLongitude = ($minLongitude + $maxLongitude) / 2;
+                } else {
+                    $maxLongitude = ($minLongitude + $maxLongitude) / 2;
+                }
+                if (8 & $characterValue) {
+                    $minLatitude = ($minLatitude + $maxLatitude) / 2;
+                } else {
+                    $maxLatitude = ($minLatitude + $maxLatitude) / 2;
+                }
+                if (4 & $characterValue) {
+                    $minLongitude = ($minLongitude + $maxLongitude) / 2;
+                } else {
+                    $maxLongitude = ($minLongitude + $maxLongitude) / 2;
+                }
+                if (2 & $characterValue) {
+                    $minLatitude = ($minLatitude + $maxLatitude) / 2;
+                } else {
+                    $maxLatitude = ($minLatitude + $maxLatitude) / 2;
+                }
+                if (1 & $characterValue) {
+                    $minLongitude = ($minLongitude + $maxLongitude) / 2;
+                } else {
+                    $maxLongitude = ($minLongitude + $maxLongitude) / 2;
+                }
+                $latitudeE /= 4;
+                $longitudeE /= 8;
+            }
+        }
+        $latitude = round(($minLatitude + $maxLatitude) / 2, max(1, -round(log10($latitudeE))) - 1);
+        $longitude = round(($minLongitude + $maxLongitude) / 2, max(1, -round(log10($longitudeE))) - 1);
+
+        return [$latitude, $longitude];
+    }
+
+    /**
+     * @param string $geohash
+     * @param string $direction
+     *
+     * Based on David Troy implementation.
      *
      * @link https://github.com/davetroy/geohash-js Original implementation in javascript
+     *
+     * @return string
      */
-    public static function calculateAdjacent($hash, $direction)
+    public static function calculateAdjacent($geohash, $direction)
     {
-        $hash = strtolower($hash);
-        $lastChar = substr($hash, -1);
-        $type = strlen($hash) % 2 ? self::ODD : self::EVEN;
-        $base = substr($hash, 0, -1);
+        $geohash = strtolower($geohash);
+        $lastChar = substr($geohash, -1);
+        $type = strlen($geohash) % 2 ? self::ODD : self::EVEN;
+        $base = substr($geohash, 0, -1);
 
         if (!empty($base) && strpos(self::$borders[$direction][$type], $lastChar) !== false) {
             $base = self::calculateAdjacent($base, $direction);
         }
 
-        return $base . self::$table[strpos(self::$neighbors[$direction][$type], $lastChar)];
+        return $base . self::$characters[strpos(self::$neighbors[$direction][$type], $lastChar)];
     }
 
-    public static function getNeighbors($hash, $layer = 1)
+    /**
+     * @param string $geohash
+     * @param int $layer
+     *
+     * @return array
+     */
+    public static function getNeighbors($geohash, $layer = 1)
     {
         $neighbors = [];
 
-        $currentHash = $hash;
+        $currentHash = $geohash;
         // Go Up
         for ($i = 0; $i < $layer; $i++) {
             $currentHash = self::calculateAdjacent($currentHash, self::DIRECTION_TOP);
