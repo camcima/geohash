@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 namespace Geohash;
 
@@ -59,19 +60,19 @@ class Geohash
      *
      * @return string
      */
-    public static function encode($latitude, $longitude, $precision = null)
+    public static function encode(float $latitude, float $longitude, int $precision = 0): string
     {
-        $latitudePrecision = strlen($latitude) - strpos($latitude, '.');
-        $longitudePrecision = strlen($longitude) - strpos($longitude, '.');
-        $precision = $precision ?: pow(10, -max($latitudePrecision - 1, $longitudePrecision - 1, 0)) / 2;
+        $latitudePrecision = strlen((string) $latitude) - strpos((string) $latitude, '.');
+        $longitudePrecision = strlen((string) $longitude) - strpos((string) $longitude, '.');
+        $precision = $precision != 0 ? $precision : pow(10, -max($latitudePrecision - 1, $longitudePrecision - 1, 0)) / 2;
 
-        $minLatitude = -90;
-        $maxLatitude = 90;
-        $minLongitude = -180;
-        $maxLongitude = 180;
+        $minLatitude = (float) -90;
+        $maxLatitude = (float) 90;
+        $minLongitude = (float) -180;
+        $maxLongitude = (float) 180;
 
         $geohash = [];
-        $error = 180;
+        $error = (float) 180;
         $isEven = true;
         $character = 0;
         $bit = 0;
@@ -114,9 +115,9 @@ class Geohash
     /**
      * @param string $geohash
      *
-     * @return array
+     * @return float[]
      */
-    public static function decode($geohash)
+    public static function decode(string $geohash): array
     {
         $minLongitude = -180;
         $maxLongitude = 180;
@@ -185,8 +186,8 @@ class Geohash
                 $longitudeE /= 8;
             }
         }
-        $latitude = round(($minLatitude + $maxLatitude) / 2, max(1, -round(log10($latitudeE))) - 1);
-        $longitude = round(($minLongitude + $maxLongitude) / 2, max(1, -round(log10($longitudeE))) - 1);
+        $latitude = round(($minLatitude + $maxLatitude) / 2, (int) max(1, -round(log10($latitudeE))) - 1);
+        $longitude = round(($minLongitude + $maxLongitude) / 2, (int) max(1, -round(log10($longitudeE))) - 1);
 
         return [$latitude, $longitude];
     }
@@ -201,7 +202,7 @@ class Geohash
      *
      * @return string
      */
-    public static function calculateAdjacent($geohash, $direction)
+    public static function calculateAdjacent(string $geohash, string $direction): string
     {
         $geohash = strtolower($geohash);
         $lastChar = substr($geohash, -1);
@@ -221,7 +222,7 @@ class Geohash
      *
      * @return array
      */
-    public static function getNeighbors($geohash, $layer = 1)
+    public static function getNeighbors(string $geohash, int $layer = 1)
     {
         $neighbors = [];
 
